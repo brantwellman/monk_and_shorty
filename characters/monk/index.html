@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../shared/viewer.css">
+<style>
+/* Monk's colors: fleece blue swatch, collar teal accent */
+:root { --swatch: #1f55c0; --accent: #0f9e8f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --swatch: #5b8cf0; --accent: #3fd0c0; } }
+:root[data-theme="dark"] { --swatch: #5b8cf0; --accent: #3fd0c0; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div class="card">
+  <h1><span class="swatch" aria-hidden="true"></span>Monk</h1>
+  <p>Squirrel monkey · 7¾ in tall</p>
+</div>
+<div class="hint">Drag to orbit<br>Scroll or pinch to zoom<br>Right-drag to pan</div>
+<div class="toolbar">
+  <div class="bar" role="toolbar" aria-label="Viewer controls">
+    <div class="group" aria-label="Camera views">
+      <button id="v-front" data-view="front">Front</button>
+      <button id="v-34" data-view="three">3/4</button>
+      <button id="v-side" data-view="side">Side</button>
+      <button id="v-back" data-view="back">Back</button>
+      <button id="v-top" data-view="top">Top</button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="group">
+      <button id="t-spin" aria-pressed="false">Spin</button>
+      <button id="t-wiggle" aria-pressed="false">Wiggle</button>
+      <button id="t-scale" aria-pressed="true">Ruler</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createViewer } from '../../shared/viewer.js';
+import { buildMonk } from './monk.js';
+
+const monk = buildMonk();
+const viewer = createViewer({ container: document.getElementById('stage'), character: monk });
+window.monk = { ...viewer, ...monk }; // handy for poking at parts from the browser console
+</script>
+</body>
+</html>
