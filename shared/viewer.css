@@ -1,0 +1,81 @@
+/* Shared viewer page styles. Each character page sets --swatch (and may override --accent) for its own colors. */
+/* Layout: full-bleed 3D stage, name card top-left, view + toggle toolbar pinned to the bottom */
+:root {
+  --stage: #e6ecf0;
+  --stage-2: #d5dfe6;
+  --fg: #1b2129;
+  --muted: #5d6874;
+  --panel: rgba(255,255,255,0.78);
+  --line: rgba(27,33,41,0.14);
+  --accent: #5b3fb0;      /* zipper purple */
+  --accent-fg: #ffffff;
+  --swatch: #c8242f;        /* character color, set per page */
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --stage: #141a20; --stage-2: #1d252d; --fg: #e8edf2; --muted: #94a1ad;
+    --panel: rgba(24,31,38,0.8); --line: rgba(232,237,242,0.14);
+    --accent: #a48cf0; --accent-fg: #15101f; --swatch: #e2434d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --stage: #141a20; --stage-2: #1d252d; --fg: #e8edf2; --muted: #94a1ad;
+  --panel: rgba(24,31,38,0.8); --line: rgba(232,237,242,0.14);
+  --accent: #a48cf0; --accent-fg: #15101f; --swatch: #e2434d; color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--stage); color: var(--fg);
+  font-family: var(--font-display); overflow: hidden; position: relative;
+}
+#stage { position: absolute; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#stage canvas:active { cursor: grabbing; }
+
+.card {
+  position: absolute; z-index: 2;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  display: grid; gap: 4px; pointer-events: none;
+}
+.card h1 {
+  margin: 0; font-size: clamp(30px, 6vw, 46px); font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+  display: flex; align-items: center; gap: 10px;
+}
+.card h1 .swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--swatch); box-shadow: inset 0 -3px 0 var(--accent); }
+.card p { margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+
+.toolbar {
+  position: absolute; z-index: 2; left: 0; right: 0;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; pointer-events: none;
+}
+.bar {
+  pointer-events: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-width: 100%;
+}
+.group { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+.sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+button {
+  font: 500 12px/1 var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--fg); background: transparent; border: 0; border-radius: 9px; padding: 9px 11px; cursor: pointer;
+}
+button:hover { background: var(--line); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.hint {
+  position: absolute; z-index: 2; right: max(16px, env(safe-area-inset-right, 0px));
+  top: calc(18px + env(safe-area-inset-top, 0px));
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-align: right; line-height: 1.5;
+  pointer-events: none;
+}
+@media (max-width: 560px) {
+  .hint { display: none; }
+  .sep { display: none; }
+  button { padding: 9px 9px; }
+}
