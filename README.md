@@ -7,7 +7,7 @@ procedural textures when the page loads.
 | Character | Status | Viewer |
 |---|---|---|
 | **Shorty**, a baby emperor penguin in a red fleece vest (6¼ in) | done | `characters/shorty/` |
-| **Monk**, a monkey in a blue fleece pullover | not built yet | — |
+| **Monk**, a squirrel monkey (7¾ in); his blue fleece pullover comes next | in progress | `characters/monk/` |
 
 ## Viewing a model
 
@@ -40,6 +40,12 @@ characters/
     shorty.js              builds Shorty; returns his root, posable parts, height, and pose hooks
     index.html             Shorty's viewer page
     NOTES.md               measurements and the look decisions behind the numbers
+  monk/
+    monk.js                builds Monk, same shape of module as Shorty's
+    index.html             Monk's viewer page
+    NOTES.md               Monk's measurements and look decisions
+    archive/
+      monk-fleece-v1.js    first version, modeled wearing the fleece; reference for re-adding it
 ```
 
 ## How a character module works
