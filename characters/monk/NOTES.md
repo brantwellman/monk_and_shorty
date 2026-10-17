@@ -1,8 +1,7 @@
 # Monk: notes
 
-A squirrel monkey plush. The model is currently Monk **without his fleece**. The blue pullover will be
-added back as its own layer once the body and head are right. The earlier pullover work (posture with
-the fleece on, collar, V-neck and trim) is saved outside the repo for reference.
+A squirrel monkey plush in a blue fleece pullover. The body and head are modeled without clothes; the pullover
+is a separate layer over them, shown or hidden with the **Fleece** button on his viewer page.
 
 ## Measurements
 
@@ -73,39 +72,49 @@ the shoulder, with the elbow bent so the forearm stands upright and the palm fac
 by rocking the forearm side to side from the elbow, the hand following a beat behind, then lowers the
 arm back to the ground. Meanwhile his head tilts and turns, his ears twitch and his tail sways.
 
-## Next up: put the blue fleece back on
+## Fleece pullover
 
-The body and head are settled for now. The next step is to re-add his fleece pullover as a separate layer
-over this body, and to make it switchable.
+Built in `monk.js` as its own layer over the body; the body and head are unchanged underneath.
 
-**Toggle button.** Add a **Fleece** button to Monk's viewer toolbar, next to **Wiggle**, that shows and hides
-the pullover. Plan:
-- Build every pullover piece (body shell, sleeves, collar, trim, chest patch) inside one `fleece` group in
-  `monk.js`, and return it from `buildMonk()` (for example as `outfits: { fleece }`). The sleeves should be
-  children of the arm groups so they follow the arms when he waves.
-- Add `<button id="t-fleece" aria-pressed="true">Fleece</button>` to `characters/monk/index.html`, and wire it
-  in that page's script to set `fleece.visible`. Keep `shared/viewer.js` generic: Shorty has no outfit toggle.
-- While the fleece is on, the fur under it can stay as is. Hide any hair that pokes through, if needed, rather
-  than reshaping the body.
+**Switching it.** `buildMonk()` returns `outfits.fleece`. Setting `outfits.fleece.visible` shows or hides every
+piece. The pieces over the torso live in one `fleece` group inside the torso, so they lean with it. The sleeves are
+children of the arm and forearm groups (`sleeveUpperL/R`, `sleeveLowerL/R`), so they follow the arms when he waves.
+While the fleece is on, the long hair on his arms is hidden, because it would poke through the sleeves and out of the
+cuffs; the trunk hair stays. The **Fleece** button is wired in `characters/monk/index.html`, so `shared/viewer.js`
+stays generic.
 
-**Reference.** `archive/monk-fleece-v1.js` is the first version of Monk, built wearing the pullover. That
-version had a different, more hunched posture, so reuse its pullover techniques, not its numbers:
-- Shell: elliptical sections around a spine, with an open V-neck (`gap`), soft folds (`wrinkle`), and the
-  front hanging loose over the chest (`BAG`) so the V sits in front of the sleeves.
-- Trim: narrow teal strips (about ⅕ in, `TRIM_W`) down both edges of the V, the wearer's right lapping over
-  the left at the bottom, with a stitch line.
-- Collar: a short teal band, a little higher at the back (`COL_H`), open at the front, with small points
-  folding out.
-- Sleeves: baggy, with the fleece bunched in rolls at the cuffs and the paws coming out.
-- Chest patch on his left, next to the V: a small landscape over scribbled red-and-cream marks that suggest
-  lettering. It must not reproduce the real brand name or logo.
+**Shell.** Elliptical sections around the body's own forward-leaning center line (`ZC`), each pushed out from the
+body surface by a gap that differs at the sides (`SIDE_G`), back (`BACK_G`) and front (`FRONT_G`). The gap is
+biggest across the upper back (about ⅝ in) and snug around his hips (about ¼ in), so it doesn't flare at the sides. Soft slanted folds and a nubbly pile (`fleeceMat`: small soft nubs
+used as both a light color variation and a bump, sized so each nub is a few hundredths of an inch) give the fleece
+look. Across the back it is a little baggy (`wrinkle`): one soft roll of fleece at mid-back with a crease above it.
+- Hem (`hemY`): level all the way around, about 1⅜ in up: over his legs at the sides and just above his tail at
+  the back, so it is the same length everywhere rather than longer at the back.
+- Collar seam (`topY`): high and snug around the neck (about 5 in up at the front, 5¼ at the back), so the collar
+  sits right under his chin.
 
-**Look notes from the photos with the fleece on.** Muted royal-blue fleece (the renderer brightens colors,
-so pick darker values than the photo). The pullover is roomy and comes down over the haunches at the back.
-The arms stay mostly covered by the sleeves, with the cuffs bunched just above the paws. Wearing it, he
-looks a little more hunched, because the fleece bulks up his back and shoulders, but the body underneath
-doesn't change.
+**Placket.** A quarter-length opening down the front, not a V. Below `P_BOT` (about 3⅝ in up) the fleece is closed.
+Above it a rectangular opening (`P_W`, about ½ in across) is filled by two teal strips, each sewn to one edge and
+lying across it, the wearer's right on top of the left. The bottom of the top strip is square, with a stitched box.
+There is no snap: it stays shut on its own. Toward the collar it is left open, so the opening spreads (`P_SPREAD`) and the top of each strip
+folds back on itself into a teal lapel that widens up to the collar (`FOLD_Y`, `LAPEL`). His fur shows in the opening.
 
-**How the model was checked.** During development, renders were compared with the reference photos by
-drawing the model's orthographic outline over each photo at the same inches-per-pixel scale, and with
-side-by-side head close-ups. Those scripts and the photos were kept outside the repo.
+**Collar.** A narrow teal band (about ⅕ in, `COL_H`), a little taller at the back, where it leans in toward his
+nape. There are no separate collar points: at the front the collar is flapped open along with the placket, its
+ends turning out and down onto the lapels.
+
+**Sleeves.** Roomy but not baggy (about ⅔ in radius over the arm), with the fleece pushed up into three wobbly
+rolls at the cuff and a short skirt over the wrist.
+
+**Chest patch.** On his left, beside the placket: a little landscape over scribbled red-and-cream strokes that only
+suggest lettering. The strokes are random on purpose, so no real name or logo can be read.
+
+**Teal fabric.** The collar and placket are woven cloth, not fleece. The threads are too fine to see at his size, so
+the look comes from soft tonal mottling and a faint diagonal twill (`wovenMap`), a crinkled bump, and no shine.
+
+**Color.** Muted royal blue fleece (`0x1e3c68`) and teal (`0x0c7a69`). The renderer brightens colors, so these are
+darker than the photos.
+
+**How it was checked.** Same method as the body: the model's orthographic outline was traced over a side photo and
+a front photo of him wearing the fleece at the same inches-per-pixel scale, and renders were compared side by side
+with front, side and back photos. Those scripts and the photos were kept outside the repo.

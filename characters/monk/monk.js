@@ -1,15 +1,16 @@
 // Monk — a squirrel monkey plush. Built entirely from code in inches (y up, +z = front),
 // then scaled to his real height. See NOTES.md for the look decisions behind the numbers.
 //
-// This is Monk without his fleece: golden-brown body, mustard-yellow arms, a shaggy cream bib,
-// pink paws, and a long tail with a black tip. The pullover will be added back as its own layer.
+// The body is golden-brown, with mustard-yellow arms, a shaggy cream bib, pink paws, and a long tail with a
+// black tip. His blue fleece pullover is a separate layer over it (see "fleece pullover" below).
 //
-// buildMonk() returns { root, parts, height, resetPose, idle }.
+// buildMonk() returns { root, parts, height, resetPose, idle, outfits }.
+// `outfits.fleece.visible` shows or hides the pullover.
 // `parts` are the posable groups for animation: body, torso (upper body, pivots at the hips), neck,
 // head, muzzle, earL, earR, armL, armR (shoulder), forearmL, forearmR (mid-arm), handL, handR,
 // legL, legR (hip), footL, footR, tail.
 import * as THREE from 'three';
-import { rng, furBump } from '../../shared/textures.js';
+import { rng, noiseTexture, furBump } from '../../shared/textures.js';
 import { addFurShells, addHair } from '../../shared/fur.js';
 
 export const HEIGHT_INCHES = 7.75; // measured: ground to the top of his head, sitting
@@ -183,7 +184,7 @@ export function buildMonk() {
     const hand = makePaw(side > 0 ? 'handL' : 'handR', 1.15, 0.42, side);
     hand.position.set(0, -(len - up), 0.06); hand.rotation.set(ARM_FWD, 0, -side * ARM_OUT); // level with the ground
     fore.add(hand);
-    return { arm, fore, hand };
+    return { arm, fore, hand, len, up };
   }
   const AL = makeArm(1), AR = makeArm(-1);
 
@@ -374,6 +375,285 @@ export function buildMonk() {
     stitch([[-0.2, 0.72], [0.2, 0.72], [0.28, 0.48], [0.0, 0.26], [-0.28, 0.48]], true); // nose
   }
 
+  /* ---------- fleece pullover: its own layer over the body, shown and hidden with outfits.fleece.visible ---------- */
+  // The pieces over the torso live in one `fleece` group inside the torso, so they lean with it. The sleeves are
+  // children of the arm and forearm groups, so they follow the arms when he waves. Everything is placed in the
+  // same world inches as the body, offset from the body's surface; the body itself is unchanged underneath.
+  const fleece = new THREE.Group(); fleece.name = 'fleece';
+  fleece.position.copy(HIP).negate(); torso.add(fleece); // children use world coordinates
+  // Fleece pile: small soft nubs packed together, with darker gaps between them. Drawn once, then used as a light
+  // color variation and as a bump, repeated so each nub is a few hundredths of an inch across.
+  function pileCanvas(seed, color) {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), r = rng(seed);
+    g.fillStyle = color ? '#c8c8c8' : '#606060'; g.fillRect(0, 0, S, S);
+    for (let k = 0; k < 1400; k++) {
+      const x = r() * S, y = r() * S, rad = 3 + r() * 6, v = color ? 225 + r() * 30 : 170 + r() * 85;
+      for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { // wrap at the edges so the tile repeats seamlessly
+        if (x + dx < -rad || x + dx > S + rad || y + dy < -rad || y + dy > S + rad) continue;
+        const grd = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad);
+        grd.addColorStop(0, `rgba(${v},${v},${v},0.9)`); grd.addColorStop(1, `rgba(${v},${v},${v},0)`);
+        g.fillStyle = grd; g.fillRect(x + dx - rad, y + dy - rad, rad * 2, rad * 2);
+      }
+    }
+    return c;
+  }
+  const PILE_BUMP = pileCanvas(13, false), PILE_COLOR = pileCanvas(13, true);
+  // a fleece material whose pile repeats rx × ry times over the mesh's uvs (sized so the nubs come out even)
+  function fleeceMat(rx, ry) {
+    const tex = (cv, srgb) => { const t = new THREE.CanvasTexture(cv); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8; return t; };
+    return new THREE.MeshPhysicalMaterial({ color: 0x1e3c68, map: tex(PILE_COLOR, true), roughness: 1, sheen: 0.45, sheenRoughness: 0.9, sheenColor: 0x5a7cab, bumpMap: tex(PILE_BUMP), bumpScale: 2.2, side: THREE.DoubleSide });
+  }
+  // The teal collar and placket are a woven cotton-nylon. At his size the threads are too fine to see, so the
+  // fabric look comes from soft tonal mottling, a faint diagonal twill, and a crinkled bump; no shine.
+  function wovenMap(seed) {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), r = rng(seed);
+    g.fillStyle = '#f2f2f2'; g.fillRect(0, 0, S, S);
+    for (let k = 0; k < 260; k++) {                       // mottling: soft lighter and darker patches
+      const v = Math.floor(200 + r() * 55), x = r() * S, y = r() * S, rad = 6 + r() * 26;
+      const grd = g.createRadialGradient(x, y, 0, x, y, rad); grd.addColorStop(0, `rgba(${v},${v},${v},0.35)`); grd.addColorStop(1, `rgba(${v},${v},${v},0)`);
+      g.fillStyle = grd; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.07)'; g.lineWidth = 1.2;      // twill: fine diagonal ribs
+    for (let x = -S; x < S; x += 4) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + S, S); g.stroke(); }
+    for (let k = 0; k < 30; k++) { const v = r() < 0.5 ? 0 : 255; g.fillStyle = `rgba(${v},${v},${v},0.05)`; g.fillRect(0, r() * S, S, 1 + r() * 2); } // slubby threads
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  }
+  const WOVEN = wovenMap(31), CRINKLE = noiseTexture(256, 51, 3, 3, 2.5);
+  const FM = {
+    fleece: fleeceMat(6, 1.8),   // shell: about 12 in around and 3½ in tall over uvs 0..2, so 1 in tiles
+    sleeve: fleeceMat(4, 1.5),   // sleeve tubes, caps and rolls: about 4 in around
+    lining: new THREE.MeshStandardMaterial({ color: 0x0e1c44, roughness: 1, side: THREE.DoubleSide }),
+    teal: new THREE.MeshPhysicalMaterial({ color: 0x0c7a69, map: WOVEN, roughness: 1, envMapIntensity: 0.4, sheen: 0.5, sheenRoughness: 0.9, sheenColor: 0x4fa898, bumpMap: CRINKLE, bumpScale: 2.5, side: THREE.DoubleSide }),
+    stitchTeal: new THREE.MeshStandardMaterial({ color: 0x0a6a5f, roughness: 0.7 }),
+  };
+  const shadowed = (m) => { m.castShadow = m.receiveShadow = true; return m; };
+
+  // The shell: elliptical sections around the body's own (forward-leaning) center line, each pushed out from the
+  // body surface by a gap that differs at the sides, the back and the front. The gap is biggest across the upper
+  // back and shoulders, where the fleece bulks him up, and the front hangs ahead of the sleeves.
+  const rAt = (y) => {
+    for (let i = 1; i < BODY.length; i++) if (BODY[i].y >= y) { const a = BODY[i - 1], b = BODY[i]; return a.x + (b.x - a.x) * (y - a.y) / ((b.y - a.y) || 1); }
+    return 0;
+  };
+  const SIDE_G = profile([[0.4, 0.2], [1.4, 0.22], [2.4, 0.28], [3.5, 0.36], [4.2, 0.4], [4.8, 0.28], [5.3, 0.3]]);
+  const BACK_G = profile([[0.4, 0.26], [1.2, 0.26], [2.0, 0.3], [3.0, 0.45], [3.8, 0.62], [4.4, 0.6], [5.0, 0.4], [5.3, 0.3]]);
+  const FRONT_G = profile([[0.4, 0.3], [1.4, 0.32], [2.0, 0.36], [3.0, 0.34], [4.0, 0.26], [4.8, 0.24], [5.3, 0.3]]);
+  const back01 = (th) => (1 - Math.cos(th)) / 2;                  // 0 at the front, 1 at the back
+  const wrap = (th) => Math.atan2(Math.sin(th), Math.cos(th));    // angle in -π..π, 0 at the front
+  // the hem is level all the way around: over his legs at the sides and just above his tail at the back
+  const hemY = (th) => 1.4 + 0.03 * Math.sin(3 * th + 0.7);
+  const topY = (th) => 4.95 + 0.3 * back01(th);                  // collar seam: snug under his chin, a little higher at the back
+  // soft folds: a gentle ripple plus a few creases, fading out toward the collar
+  // each fold runs on a slant: [height, angle, slant, strength]
+  const FOLDS = [[1.9, 0.5, 0.35, 0.9], [2.6, -2.2, -0.3, 0.7], [3.4, 2.6, 0.4, 0.7], [2.3, 3.3, -0.25, 0.6], [3.9, -1.2, 0.3, 0.6], [2.1, -0.9, -0.45, 0.6]];
+  function wrinkle(th, y) {
+    let w = 0.03 * Math.sin(3 * th + 2.1 * y) + 0.02 * Math.sin(7 * th - 2.9 * y + 1.1) + 0.012 * Math.sin(13 * th + 5 * y);
+    for (const [yc, ph, sl, s] of FOLDS) {
+      const d = Math.atan2(Math.sin(th + ph), Math.cos(th + ph)), band = Math.exp(-(((y - yc - sl * d) / 0.16) ** 2));
+      w -= 0.04 * s * band * Math.exp(-((d / 0.7) ** 2));
+    }
+    w *= 1 - ss(y, 4.3, 4.8);
+    // baggy bunching across the back: a soft roll of fleece at mid-back with a crease above it
+    const bk = ss(back01(th), 0.3, 0.65), yb = y + 0.12 * (back01(th) - 0.5);
+    w += bk * (0.08 * Math.exp(-(((yb - 2.45) / 0.14) ** 2)) - 0.035 * Math.exp(-(((yb - 2.66) / 0.06) ** 2)));
+    return w;
+  }
+  const halfW = (y) => rAt(y) + SIDE_G(y);
+  function onShell(th, y, off = 0) {
+    const r = rAt(y), c = Math.cos(th), w = wrinkle(th, y) + off;
+    const d = r * ASPECT(y) + THREE.MathUtils.lerp(BACK_G(y), FRONT_G(y), ss(c, -0.3, 0.3)) + w;
+    return V3((halfW(y) + w) * Math.sin(th), y, ZC(y) + d * c);
+  }
+  // Placket: a quarter-length opening down the front. Below P_BOT the fleece is closed. Above it a rectangular
+  // opening (half-width P_W) is filled by two teal strips, the wearer's right lapping over the left. Toward the
+  // collar the opening spreads (P_SPREAD), because it is left open and the collar is flapped open.
+  const P_BOT = 3.6, P_TOP = topY(0), P_W = 0.24, P_SPREAD = 0.2, STRIP_W = 2 * P_W;
+  const gapW = (y) => P_W * ss(y, P_BOT - 0.02, P_BOT + 0.02) + P_SPREAD * Math.max(0, (y - P_BOT) / (P_TOP - P_BOT)) ** 2;
+  const gapTh = (y) => Math.asin(Math.min(0.9, gapW(y) / halfW(y)));
+  {
+    // rows run from the hem (s = 0) to the collar seam (s = 1); the opening is measured at the front
+    const shell = shadowed(new THREE.Mesh(gridGeo(160, 200, (u, s) => {
+      const g = gapTh(hemY(0) + (P_TOP - hemY(0)) * s), th = g + (Math.PI * 2 - 2 * g) * u;
+      return onShell(th, hemY(th) + (topY(th) - hemY(th)) * s);
+    }), FM.fleece));
+    shell.name = 'shell'; fleece.add(shell);
+    addFurShells(shell, { layers: 3, depth: 0.025, repeat: 36, crisp: true }); // pilled fleece fuzz
+
+    // rolled hem
+    const hem = [];
+    for (let i = 0; i < 160; i++) { const th = Math.PI * 2 * i / 160; hem.push(onShell(th, hemY(th) + 0.05, -0.02)); }
+    fleece.add(shadowed(tube(hem, 0.075, FM.fleece, { closed: true, segs: 320 })));
+
+    // the two teal strips, each sewn to one edge of the opening and lying across it. The wearer's left strip
+    // sits underneath (tucked under the fleece where it runs past the opening); the right strip lies on top.
+    // Toward the top each strip is folded back on itself: the part above a slanted fold line turns outward and
+    // lies on the fleece as a teal lapel that widens up to the collar.
+    const FOLD_Y = P_BOT + 0.4 * (P_TOP - P_BOT), LAPEL = 1.35;
+    const folded = (y) => ss(y, FOLD_Y, P_TOP);
+    for (const side of [1, -1]) {
+      const off = side < 0 ? 0.035 : -0.012;
+      const inner = (y) => { const g = gapTh(y), w = STRIP_W * (1 - folded(y)) / halfW(y); return side > 0 ? [g - w, g] : [-g, -g + w]; };
+      const lapel = (y) => { const g = gapTh(y), w = STRIP_W * LAPEL * folded(y) / halfW(y); return side > 0 ? [g, g + w] : [-g - w, -g]; };
+      const strip = shadowed(new THREE.Mesh(gridGeo(30, 10, (u, t) => {
+        const y = P_BOT + (P_TOP - P_BOT) * t, [a, b] = inner(y); return onShell(a + (b - a) * u, y, off);
+      }), FM.teal));
+      strip.name = side > 0 ? 'placketL' : 'placketR'; fleece.add(strip);
+      const lap = shadowed(new THREE.Mesh(gridGeo(20, 10, (u, t) => {
+        const y = FOLD_Y + (P_TOP - FOLD_Y) * t, [a, b] = lapel(y); return onShell(a + (b - a) * u, y, 0.045);
+      }), FM.teal));
+      lap.name = side > 0 ? 'lapelL' : 'lapelR'; fleece.add(lap);
+      // stitching just inside the strip's free edge, the free edge itself, and the lapel's outer edge
+      const st = [], edge = [], lapEdge = [];
+      for (let i = 0; i <= 24; i++) {
+        const y = P_BOT + 0.04 + (P_TOP - P_BOT - 0.04) * i / 24, [a, b] = inner(y);
+        if (y < FOLD_Y + 0.15) st.push(onShell(side > 0 ? a + 0.05 / halfW(y) : b - 0.05 / halfW(y), y, off + 0.004));
+        edge.push(onShell(side > 0 ? a : b, y, off));
+        const yl = FOLD_Y + (P_TOP - FOLD_Y) * i / 24, [la, lb] = lapel(yl);
+        lapEdge.push(onShell(side > 0 ? lb : la, yl, 0.045));
+      }
+      fleece.add(tube(st, 0.008, FM.stitchTeal, { segs: 48, radial: 5 }));
+      fleece.add(tube(edge, 0.016, FM.teal, { segs: 48, radial: 6 }));
+      fleece.add(tube(lapEdge, 0.02, FM.teal, { segs: 48, radial: 6 }));
+    }
+    // the square end of the placket: a stitched box across the bottom of the top strip (no snap: it stays shut on its own)
+    {
+      const g = gapTh(P_BOT + 0.02), a = -g, b = -g + STRIP_W / halfW(P_BOT), off = 0.04, box = [];
+      const at = (th, y) => onShell(th, y, off);
+      const i0 = 0.05 / halfW(P_BOT);
+      for (const [th, y] of [[a + i0, P_BOT + 0.36], [a + i0, P_BOT + 0.05], [b - i0, P_BOT + 0.05], [b - i0, P_BOT + 0.36]]) box.push(at(th, y));
+      fleece.add(tube(box, 0.008, FM.stitchTeal, { segs: 40, radial: 5 }));
+      const bottom = []; for (let i = 0; i <= 8; i++) bottom.push(onShell(a + (b - a) * i / 8, P_BOT + 0.005, 0.035));
+      fleece.add(tube(bottom, 0.018, FM.teal, { segs: 16, radial: 6 }));
+    }
+  }
+
+  /* teal collar: a narrow band (about ⅕ in), a little taller at the back. At the front it is flapped open along with the
+     placket, so each front end turns out and down onto the chest. */
+  const COL_H = (th) => 0.195 + 0.05 * back01(th);
+  const GTOP = gapTh(P_TOP);
+  function onCollar(th, t, off = 0) {
+    const y0 = topY(th), c = V3(0, y0, ZC(y0)), base = onShell(th, y0, off);
+    const outward = base.clone().sub(c).setY(0).normalize();
+    // how far this part of the collar is folded open: fully at the front ends, standing up at the sides and back
+    const f = Math.exp(-(((Math.abs(wrap(th)) - GTOP) / 0.6) ** 2));
+    const lean = 0.08 - 0.25 * back01(th);       // the back leans in toward his nape
+    const dir = V3(0, 1, 0).addScaledVector(outward, lean).lerp(outward.clone().multiplyScalar(0.75).add(V3(0, -0.66, 0)), f).normalize();
+    return base.addScaledVector(dir, COL_H(th) * t * (1 + 0.25 * f)).addScaledVector(outward, 0.015 * f * t);
+  }
+  {
+    const collar = shadowed(new THREE.Mesh(gridGeo(10, 160, (u, t) => onCollar(GTOP + (Math.PI * 2 - 2 * GTOP) * u, t)), FM.teal));
+    collar.name = 'collar'; fleece.add(collar);
+    // folded outer edge and the two front edges
+    const edge = [];
+    for (let i = 0; i <= 8; i++) edge.push(onCollar(GTOP, i / 8, 0.01));
+    for (let i = 1; i < 80; i++) edge.push(onCollar(GTOP + (Math.PI * 2 - 2 * GTOP) * i / 80, 1, 0.01));
+    for (let i = 8; i >= 0; i--) edge.push(onCollar(-GTOP, i / 8, 0.01));
+    fleece.add(tube(edge, 0.03, FM.teal, { segs: 240 }));
+    // stitch line along the collar, just inside the edge
+    const st = [];
+    for (let i = 0; i <= 80; i++) st.push(onCollar(GTOP + 0.04 + (Math.PI * 2 - 2 * GTOP - 0.08) * i / 80, 0.8, 0.015));
+    fleece.add(tube(st, 0.007, FM.stitchTeal, { segs: 200, radial: 5 }));
+    // seam where the collar meets the fleece
+    const seam = [];
+    for (let i = 0; i <= 90; i++) seam.push(onCollar(GTOP + (Math.PI * 2 - 2 * GTOP) * i / 90, 0.02));
+    fleece.add(tube(seam, 0.04, FM.fleece, { segs: 180 }));
+  }
+
+  /* chest patch on the wearer's left, beside the placket: a little landscape over scribbled marks that suggest
+     lettering. The marks are random strokes on purpose, so no real name or logo can be read. */
+  {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    rr(4, 4, S - 8, S - 8, 16); g.fillStyle = '#14301f'; g.fill();
+    g.save(); rr(16, 16, S - 32, 104, 8); g.clip();
+    const sky = g.createLinearGradient(0, 16, 0, 120); sky.addColorStop(0, '#f2c230'); sky.addColorStop(0.55, '#e88a3a'); sky.addColorStop(1, '#c75a7a');
+    g.fillStyle = sky; g.fillRect(0, 0, S, 130);
+    g.fillStyle = '#6a4a9a'; g.beginPath(); g.moveTo(0, 96); g.lineTo(56, 50); g.lineTo(96, 76); g.lineTo(142, 38); g.lineTo(190, 80); g.lineTo(226, 58); g.lineTo(S, 86); g.lineTo(S, 130); g.lineTo(0, 130); g.fill();
+    g.fillStyle = '#7fb8d8'; g.fillRect(0, 94, S, 12);
+    g.fillStyle = '#1e5a34'; g.beginPath(); g.moveTo(0, 122); for (let x = 0; x <= S; x += 12) g.lineTo(x, 102 + ((x * 7) % 11)); g.lineTo(S, 122); g.fill();
+    g.restore();
+    g.lineCap = g.lineJoin = 'round';
+    const scribble = (x0, x1, yMid, amp, lw, color, seed) => {
+      const r = rng(seed); g.strokeStyle = color; g.lineWidth = lw; g.beginPath(); g.moveTo(x0, yMid);
+      let x = x0;
+      while (x < x1) {
+        const step = 7 + r() * 9, up = (r() - 0.35) * amp;
+        g.bezierCurveTo(x + step * 0.3, yMid - up, x + step * 0.7, yMid - up * 1.2, x + step, yMid + (r() - 0.5) * amp * 0.3);
+        if (r() < 0.3) { g.moveTo(x + step + 8 + r() * 6, yMid); x += 12; }
+        x += step;
+      }
+      g.stroke();
+    };
+    scribble(40, 212, 182, 52, 15, '#b8262c', 77); // a red outline under cream strokes
+    scribble(40, 212, 182, 52, 8, '#f1ead6', 77);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.repeat.set(0.5, 0.5); // gridGeo uvs run 0..2
+    const PY = 3.75, PX = 0.62, PW = 0.5, PH = 0.56, th0 = Math.asin(PX / halfW(PY));
+    const patch = new THREE.Mesh(gridGeo(8, 8, (u, t) => onShell(th0 + (u - 0.5) * PW / halfW(PY), PY + (t - 0.5) * PH, 0.03)),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, alphaTest: 0.5, transparent: true }));
+    patch.name = 'chestPatch'; patch.receiveShadow = true; fleece.add(patch);
+  }
+
+  /* sleeves: roomy but not baggy, with the fleece bunched in soft rolls at the cuffs and the paws coming out */
+  function sleeveGeo(len, r0, r1, seed) {
+    const r = rng(seed), rings = [];
+    for (let k = 0; k < 4; k++) rings.push([0.2 + 0.7 * r(), 0.6 + 0.6 * r()]);
+    const pts = [];
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40; let rad = r0 + (r1 - r0) * t;
+      for (const [tc, s] of rings) rad -= 0.012 * s * Math.exp(-(((t - tc) / 0.08) ** 2));
+      pts.push(new THREE.Vector2(rad, -len * t));
+    }
+    const g = new THREE.LatheGeometry(pts.reverse(), 48), p = g.attributes.position; // bottom-to-top, so the surface faces out
+    for (let i = 0; i < p.count; i++) { const a = Math.atan2(p.getX(i), p.getZ(i)), y = p.getY(i), k = 1 + 0.04 * Math.sin(3 * a + y * 4 + seed); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); }
+    g.computeVertexNormals(); return g;
+  }
+  function bunchedRoll(R, tr, seed) {
+    const g = new THREE.TorusGeometry(R, tr, 12, 48), p = g.attributes.position, r = rng(seed), ph = [r() * 6, r() * 6];
+    for (let i = 0; i < p.count; i++) {
+      const a = Math.atan2(p.getY(i), p.getX(i)), k = 1 + 0.06 * Math.sin(3 * a + ph[0]) + 0.035 * Math.sin(5 * a + ph[1]);
+      p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * (1 + 0.3 * Math.sin(2 * a + ph[0])) + 0.04 * Math.sin(4 * a + ph[1]));
+    }
+    g.computeVertexNormals(); return g;
+  }
+  const sleeves = [];
+  for (const [A, side] of [[AL, 1], [AR, -1]]) {
+    const fo = A.len - A.up, seed = side > 0 ? 3 : 4;
+    const upper = new THREE.Group(); upper.name = side > 0 ? 'sleeveUpperL' : 'sleeveUpperR'; A.arm.add(upper);
+    upper.add(shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.66, 32, 20), FM.sleeve)));
+    const fuzz = (m) => { addFurShells(m, { layers: 2, depth: 0.02, repeat: 14, crisp: true }); return m; };
+    upper.add(fuzz(shadowed(new THREE.Mesh(sleeveGeo(A.up + 0.05, 0.66, 0.66, seed), FM.sleeve))));
+    const lower = new THREE.Group(); lower.name = side > 0 ? 'sleeveLowerL' : 'sleeveLowerR'; A.fore.add(lower);
+    lower.add(shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.66, 32, 20), FM.sleeve)));
+    lower.add(fuzz(shadowed(new THREE.Mesh(sleeveGeo(fo - 0.1, 0.66, 0.6, seed + 2), FM.sleeve))));
+    // the cuff: fleece pushed up into soft rolls just above the paw
+    [[0.28, 0.64, 0.12, -0.08], [0.15, 0.6, 0.11, 0.05]].forEach(([d, R, tr, tilt], k) => {
+      const roll = fuzz(shadowed(new THREE.Mesh(bunchedRoll(R, tr, seed * 10 + k), FM.sleeve)));
+      roll.rotation.set(Math.PI / 2 + tilt, 0, tilt * side); roll.position.y = -fo + d; lower.add(roll);
+    });
+    // a soft skirt of fleece below the last roll, resting on the back of the paw
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.53, 0.18, 40, 1, true), FM.sleeve);
+    skirt.position.y = -fo + 0.05; skirt.castShadow = true; lower.add(skirt);
+    const hole = new THREE.Mesh(new THREE.RingGeometry(0.44, 0.56, 32), FM.lining);
+    hole.rotation.x = Math.PI / 2; hole.position.y = -fo - 0.04; lower.add(hole);
+    sleeves.push(upper, lower);
+  }
+
+  // The arms are covered by the sleeves, so their long hair is hidden while the fleece is on (it would poke
+  // through the sleeves and out of the cuffs). The body itself is untouched.
+  const armHair = [];
+  for (const A of [AL, AR]) A.arm.traverse((o) => { if (o.isInstancedMesh && o.name === 'hair') armHair.push(o); });
+  const outfits = {
+    fleece: {
+      group: fleece, pieces: [fleece, ...sleeves],
+      get visible() { return fleece.visible; },
+      set visible(on) {
+        for (const p of this.pieces) p.visible = on;
+        for (const h of armHair) h.visible = !on;
+      },
+    },
+  };
+  outfits.fleece.visible = true;
+
   /* ---------- scale to his real height (top of the head fur) ---------- */
   root.updateMatrixWorld(true);
   let top = 0;
@@ -423,5 +703,5 @@ export function buildMonk() {
     earR.rotation.z = R(earR).z - Math.sin(t * 3) * 0.05;
   }
 
-  return { root, parts, height: HEIGHT_INCHES, resetPose, idle };
+  return { root, parts, height: HEIGHT_INCHES, resetPose, idle, outfits };
 }

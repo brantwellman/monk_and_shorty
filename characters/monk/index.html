@@ -40,6 +40,7 @@
     <div class="group">
       <button id="t-spin" aria-pressed="false">Spin</button>
       <button id="t-wiggle" aria-pressed="false">Wiggle</button>
+      <button id="t-fleece" aria-pressed="true">Fleece</button>
       <button id="t-scale" aria-pressed="true">Ruler</button>
     </div>
   </div>
@@ -52,6 +53,14 @@ import { buildMonk } from './monk.js';
 const monk = buildMonk();
 const viewer = createViewer({ container: document.getElementById('stage'), character: monk });
 window.monk = { ...viewer, ...monk }; // handy for poking at parts from the browser console
+
+// Fleece: show or hide his pullover (Monk-only, so it's wired here rather than in the shared viewer)
+const fleeceBtn = document.getElementById('t-fleece');
+fleeceBtn.addEventListener('click', () => {
+  const on = fleeceBtn.getAttribute('aria-pressed') !== 'true';
+  fleeceBtn.setAttribute('aria-pressed', on);
+  monk.outfits.fleece.visible = on;
+});
 </script>
 </body>
 </html>
