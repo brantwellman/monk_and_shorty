@@ -7,7 +7,7 @@ procedural textures when the page loads.
 | Character | Status | Viewer |
 |---|---|---|
 | **Shorty**, a baby emperor penguin in a red fleece vest (6¼ in) | done | `characters/shorty/` |
-| **Monk**, a squirrel monkey (7¾ in); his blue fleece pullover comes next | in progress | `characters/monk/` |
+| **Monk**, a squirrel monkey in a blue fleece pullover (7¾ in) | done | `characters/monk/` |
 
 ## Viewing a model
 
@@ -24,7 +24,8 @@ three.js loads from the jsDelivr CDN, so an internet connection is needed.
 
 In the viewer: drag to orbit, scroll or pinch to zoom, right-drag to pan. The toolbar has preset
 views (front, 3/4, side, back, top), **Spin**, **Wiggle** (a quick test animation) and **Ruler**
-(an inch ruler and 1-inch grid, with the character's real height marked).
+(an inch ruler and 1-inch grid, with the character's real height marked). Monk's page also has **Fleece**, which
+shows and hides his pullover.
 
 ## Layout
 
@@ -59,6 +60,7 @@ Each character exports a build function that returns:
   height,      // real height in inches; the viewer scales the camera and ruler to it
   resetPose(), // return every part to its rest pose
   idle(t),     // a simple test animation, driven by time in seconds
+  outfits,     // optional: switchable clothing layers, e.g. Monk's outfits.fleece.visible
 }
 ```
 
